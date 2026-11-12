@@ -1,0 +1,20 @@
+[project]
+name = "mirage-ocr"
+version = "0.1.0"
+description = "Image and PDF OCR web app powered by Cactus Compute Mirage"
+requires-python = ">=3.10"
+dependencies = [
+    "cactus-compute>=4.2",
+    "fastapi",
+    "uvicorn[standard]",
+    "python-multipart",
+    "pymupdf",
+    "pillow",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "httpx"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

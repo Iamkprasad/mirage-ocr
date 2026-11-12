@@ -1,0 +1,25 @@
+Mirage OCR
+Copyright 2026 Mirage OCR contributors
+
+This product includes software and models developed by Cactus Compute, Inc.
+(https://cactuscompute.com):
+
+  * Mirage, the vision language model with OCR, object detection, instance
+    segmentation and structured extraction used by this application.
+    - Weights and model card: https://huggingface.co/Cactus-Compute/mirage
+    - Licensed under the Apache License, Version 2.0
+    - Blog post describing the model and its benchmarks:
+      https://cactuscompute.com/blog/mirage
+
+  * The Cactus runtime and the `cactus-compute` Python package, which download
+    and run the Mirage engine locally.
+    - Source: https://github.com/cactus-compute/cactus
+    - Runtime binaries: https://huggingface.co/Cactus-Compute/cactus
+    - Licensed under the Apache License, Version 2.0
+
+The Mirage weights are redistributed by their authors, not by this project.
+They are fetched from Hugging Face on first use and cached locally; see the
+model card for the weights licence and the exact revision this project pins.
+
+Third party dependencies keep their own licences. See CREDITS.md for the full
+list.

@@ -1,0 +1,41 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Mirage OCR"
+abstract: >-
+  A web app that reads text out of images and PDFs with Mirage, the 22 MB
+  vision model from Cactus Compute. Pages are cut into overlapping windows
+  because Mirage reads from a 16 x 16 grid of 32 px cells.
+type: software
+license: Apache-2.0
+repository-code: "https://github.com/Iamkprasad/mirage-ocr"
+url: "https://github.com/Iamkprasad/mirage-ocr"
+keywords:
+  - ocr
+  - text-recognition
+  - pdf
+  - vision-language-model
+  - on-device
+  - cactus-compute
+  - mirage
+authors:
+  - family-names: Kulal
+    given-names: Prasad
+    email: prasadkulal2505@gmail.com
+references:
+  - type: software
+    title: "Mirage: VLM + OCR + Detection + Segment + Decide in 22 MB"
+    authors:
+      - name: Cactus Compute, Inc.
+    url: "https://cactuscompute.com/blog/mirage"
+  - type: software
+    title: "Cactus Compute / cactus runtime"
+    authors:
+      - name: Cactus Compute, Inc.
+    url: "https://github.com/cactus-compute/cactus"
+    license: Apache-2.0
+  - type: software
+    title: "Mirage model weights"
+    authors:
+      - name: Cactus Compute, Inc.
+    url: "https://huggingface.co/Cactus-Compute/mirage"
+    license: Apache-2.0

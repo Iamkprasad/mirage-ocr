@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mirage OCR</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <h1>Mirage OCR</h1>
+  <p>Image and PDF text extraction, on-device with Cactus Compute Mirage.</p>
+</header>
+
+<section id="drop" class="drop">
+  <input type="file" id="file" accept="image/*,application/pdf" hidden>
+  <p><strong>Drop an image or a PDF</strong><br>or click to choose a file</p>
+</section>
+
+<section class="controls">
+  <label>PDF resolution
+    <select id="dpi">
+      <option value="150">150 DPI (fast)</option>
+      <option value="200" selected>200 DPI (balanced)</option>
+      <option value="300">300 DPI (small print)</option>
+    </select>
+  </label>
+  <button id="copy" disabled>Copy text</button>
+  <button id="download" disabled>Download .txt</button>
+  <span id="status"></span>
+</section>
+
+<section class="progress">
+  <div class="bar"><div id="bar-fill"></div></div>
+  <div id="stage" class="stage">idle</div>
+</section>
+
+<section class="metrics" id="metrics">
+  <div><b id="m-last">–</b><span>last request</span></div>
+  <div><b id="m-page">–</b><span>ms / page</span></div>
+  <div><b id="m-window">–</b><span>ms / window</span></div>
+  <div><b id="m-windows">–</b><span>windows read</span></div>
+  <div><b id="m-skipped">–</b><span>windows skipped</span></div>
+  <div><b id="m-lines">–</b><span>lines found</span></div>
+</section>
+
+<main>
+  <div id="viewer" class="viewer"></div>
+  <div class="side">
+    <section class="panel">
+      <h2>Text</h2>
+      <pre id="text"></pre>
+    </section>
+    <section class="panel">
+      <h2>Log</h2>
+      <div id="log" class="log"></div>
+    </section>
+  </div>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
