@@ -19,21 +19,23 @@ pinned to revision `76c1e9e53381aca8fc3843c636216c96ff220122`.
 
 ## Libraries
 
-| Library | Used for | Licence |
-| --- | --- | --- |
-| [fastapi](https://github.com/fastapi/fastapi) | the web API | MIT |
-| [starlette](https://github.com/encode/starlette) | the ASGI layer under FastAPI | BSD-3-Clause |
-| [uvicorn](https://github.com/encode/uvicorn) | the server | BSD-3-Clause |
-| [python-multipart](https://github.com/Kludex/python-multipart) | file uploads | Apache-2.0 |
-| [pypdfium2](https://github.com/pypdfium/pypdfium2) | rendering PDF pages to images | Apache-2.0, BSD-3-Clause |
-| [PDFium](https://pdfium.googlesource.com/pdfium/), the renderer inside it | the PDF rasteriser | BSD-3-Clause, plus third party components under Apache-2.0, the Unicode licence and MIT |
-| [pillow](https://github.com/python-pillow/Pillow) | image handling | HPND (PIL Software License) |
-| [pydantic](https://github.com/pydantic/pydantic) | data validation, via FastAPI | MIT |
-| [anyio](https://github.com/agronholm/anyio) | async plumbing, via Starlette | MIT |
-| [click](https://github.com/pallets/click) | the `cactus` command line | BSD-3-Clause |
-| [huggingface-hub](https://github.com/huggingface/huggingface_hub) | fetching the engine and the weights | Apache-2.0 |
-| [pytest](https://github.com/pytest-dev/pytest) | the test suite | MIT |
-| [httpx](https://github.com/encode/httpx) | the test client | BSD-3-Clause |
+| Library | Author | Used for | Licence |
+| --- | --- | --- | --- |
+| [fastapi](https://github.com/fastapi/fastapi) | Sebastián Ramírez | the web API | MIT |
+| [starlette](https://github.com/encode/starlette) | Tom Christie, Encode OSS Ltd | the ASGI layer under FastAPI | BSD-3-Clause |
+| [uvicorn](https://github.com/encode/uvicorn) | Tom Christie, Encode OSS Ltd | the server | BSD-3-Clause |
+| [httpx](https://github.com/encode/httpx) | Tom Christie, Encode OSS Ltd | the test client | BSD-3-Clause |
+| [python-multipart](https://github.com/Kludex/python-multipart) | Andrew Dunham | file uploads | Apache-2.0 |
+| [pypdfium2](https://github.com/pypdfium2-team/pypdfium2) | the pypdfium2 team | rendering PDF pages to images | Apache-2.0, BSD-3-Clause |
+| [PDFium](https://pdfium.googlesource.com/pdfium/) | The PDFium Authors, from Chromium | the PDF rasteriser | BSD-3-Clause, plus third party components under Apache-2.0, the Unicode licence and MIT |
+| [pillow](https://github.com/python-pillow/Pillow) | the Python Imaging Fork, Secret Labs AB and the Python Software Foundation | image handling | HPND (PIL Software License) |
+| [pydantic](https://github.com/pydantic/pydantic) | Samuel Colvin, Eric Jolibois | data validation, via FastAPI | MIT |
+| [anyio](https://github.com/agronholm/anyio) | Alex Grönholm | async plumbing, via Starlette | MIT |
+| [click](https://github.com/pallets/click) | the Pallets team | the `cactus` command line | BSD-3-Clause |
+| [huggingface-hub](https://github.com/huggingface/huggingface_hub) | Hugging Face, Inc. | fetching the engine and the weights | Apache-2.0 |
+| [pytest](https://github.com/pytest-dev/pytest) | Holger Krekel and the pytest maintainers | the test suite | MIT |
+| [tqdm](https://github.com/tqdm/tqdm) | Stefan Oyelaran and contributors | progress bars, via huggingface-hub | MPL-2.0 or MIT |
+| [certifi](https://github.com/certifi/python-certifi) | Kenneth Reitz and the Python Software Foundation | TLS roots, via huggingface-hub | MPL-2.0 |
 
 ### Why PDFium and not PyMuPDF
 
@@ -78,6 +80,23 @@ Mirage is described in these posts by the people who built it:
 
 ## The people
 
-Mirage, the Cactus runtime and the quantisation work are by Henry Ndubuaku,
-Karen Mosoyan, Jakub Mroz, Parkirat Sandhu, Justin H. Lee, Satyajit Kumar and
-Roman Shemet at Cactus Compute.
+If you use this in a product, credit these names. They are the people whose
+work you are standing on.
+
+**Mirage, the Cactus runtime and the quantisation** — Henry Ndubuaku, Karen
+Mosoyan, Jakub Mroz, Parkirat Sandhu, Justin H. Lee, Satyajit Kumar and Roman
+Shemet at [Cactus Compute, Inc.](https://cactuscompute.com).
+
+**PDFium** — The PDFium Authors, from the Chromium project at Google.
+
+**FastAPI** — Sebastián Ramírez. **Starlette, Uvicorn and HTTPX** — Tom
+Christie and Encode OSS Ltd. **python-multipart** — Andrew Dunham.
+**pypdfium2** — the pypdfium2 team. **Pillow** — the Python Imaging Fork,
+originally Secret Labs AB, and the Python Software Foundation. **Pydantic** —
+Samuel Colvin, Eric Jolibois and the pydantic team. **AnyIO** — Alex
+Grönholm. **Click** — the Pallets team. **pytest** — Holger Krekel and the
+pytest maintainers. **huggingface_hub** — Hugging Face, Inc. **Liberation
+fonts** — Red Hat, Inc. and Google.
+
+This project itself is by the contributors of
+[mirage-ocr](https://github.com/Iamkprasad/mirage-ocr).

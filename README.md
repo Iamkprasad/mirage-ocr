@@ -28,6 +28,7 @@ GET  /api/logs                ->  the last few hundred log lines
 - [Configuration](#configuration)
 - [Project layout](#project-layout)
 - [Development](#development)
+- [Using this in a company or a product](#using-this-in-a-company-or-a-product)
 - [Credits](#credits)
 - [Licence](#licence)
 
@@ -318,6 +319,113 @@ curl -F "file=@tests/samples/document_photo.jpg" http://127.0.0.1:8000/api/ocr
 The pytest run also plays the server sent events through
 `tests/check_stream.js` and the browser code through `tests/check_frontend.js`,
 so a change to the event shape or to the page cannot pass unnoticed.
+
+## Using this in a company or a product
+
+The short version: the code is Apache-2.0, so you may use it commercially and
+modify it, and the whole dependency stack is permissive. You do, however,
+have to keep the credits, and you inherit the absence of any warranty. This
+section spells out what that means in practice.
+
+This is advice on how to read the licences, not legal advice. For a
+commercial deployment, have your own lawyer confirm it.
+
+### What you have to do
+
+| What you use | Licence | Your obligations |
+| --- | --- | --- |
+| this repository's code | Apache-2.0 | Ship a copy of `LICENSE`, keep the `NOTICE`, keep the copyright notices, and say what you changed |
+| the Mirage weights (`mirage.cact`) | Apache-2.0 | If you redistribute them, ship the licence and the notice, and say what you changed. The [model card](https://huggingface.co/Cactus-Compute/mirage) is the authority |
+| the Cactus runtime | Apache-2.0 | Same, if you redistribute the binaries |
+| PDFium and the other libraries | BSD-3, MIT, HPND, MPL-2.0 | Keep the copyright notice in binary distributions. The MPL files (`tqdm`, `certifi`) stay under MPL if you modify them, and you do not modify them |
+
+Apache-2.0 also grants a patent licence from the contributors, and it says the
+software is provided **"AS IS", without warranty of any kind**.
+
+### What you must not do
+
+* Do not use **Mirage** or **Cactus** as your product name, or in a way that
+  suggests Cactus Compute built, endorses or supports your product. Naming
+  the model you are running is fine, attributing your product to its authors
+  is not.
+* Do not remove the `NOTICE` file from a distribution.
+* Do not present the Mirage weights as your own model. They are the work of
+  Cactus Compute and the attribution in `NOTICE` is what makes the use
+  legitimate.
+
+### Credits you should keep
+
+Keep these in your product's documentation or about page, not just in a
+`LICENSE` file nobody reads:
+
+* **Mirage** and the **Cactus runtime** — Cactus Compute, Inc.
+  ([cactuscompute.com](https://cactuscompute.com)). Mirage was written by
+  Henry Ndubuaku, Karen Mosoyan, Jakub Mroz, Parkirat Sandhu, Justin H. Lee,
+  Satyajit Kumar and Roman Shemet.
+* **PDFium** — The PDFium Authors, from the Chromium project.
+* **FastAPI** — by Sebastián Ramírez, with Starlette and Uvicorn by Tom
+  Christie and Encode OSS Ltd, and httpx by the same.
+* **python-multipart** — by Andrew Dunham.
+* **pypdfium2** — by the pypdfium2 team.
+* **Pillow** — by the Python Imaging Fork, originally Secret Labs AB, and the
+  Python Software Foundation.
+* **Pydantic** — by Samuel Colvin, Eric Jolibois and the pydantic team.
+* **AnyIO** — by Alex Grönholm.
+* **Click** — by the Pallets team.
+* **pytest** — by Holger Krekel and the pytest maintainers.
+* **huggingface_hub** — by Hugging Face, Inc.
+* **Liberation fonts** — by Red Hat, Inc. and Google, under the SIL Open Font
+  Licence, used to draw the test pages.
+
+The full list with links is in [CREDITS.md](CREDITS.md).
+
+### If you need a warranty, an indemnity or support
+
+Nobody is on the hook for this software. Apache-2.0 §7 disclaims all
+warranties and liability, and the Mirage weights come with the same
+disclaimer. For a production deployment that needs a support contract, a
+service level agreement or an indemnity, talk to Cactus Compute directly,
+who wrote the model and the runtime and offer commercial terms.
+
+### Before you trust the output
+
+This is OCR: it makes mistakes at the character level, and the model can be
+confidently wrong. On the test set the character error rate is 0.000 on clean
+pages and 0.021 on a photo of a receipt, but a number like that says nothing
+about your documents. Every line comes with a confidence score, and the web
+app marks the low scoring ones, so:
+
+* use it for search, indexing and first pass extraction, and keep a human
+  in the loop for anything that ends up in a financial, medical, legal or
+  compliance record
+* measure it on your own documents before you rely on it
+* do not treat a high score as a guarantee
+
+### Privacy and the network
+
+The good news for a company: **the documents never leave the machine**. The
+model runs locally, so a scanned contract or a payslip never reaches a
+third party server.
+
+Two things still talk to the network:
+
+* the first run downloads the engine and the weights from
+  `huggingface.co`. In a locked down environment, seed
+  `~/.cache/cactus` from a machine that can reach it, or point
+  `CACTUS_MIRAGE_WEIGHTS` and `CACTUS_LIB_PATH` at local files and set
+  `HF_HUB_OFFLINE=1`
+* `cactus-compute` sends anonymous usage counts to Cactus Compute: the
+  function name, the package version, the operating system and a random
+  install id. Never prompts, never outputs, never images. Set
+  `CACTUS_TELEMETRY=0` or `DO_NOT_TRACK=1` if you do not want counts leaving
+  your environment
+
+### If you swap PDFium for PyMuPDF
+
+Do not, unless you are ready for the AGPL-3.0 obligations of Artifex's
+licence, including its network clause, or you buy a commercial licence from
+Artifex. `app/pdf.py` is the only file that touches a PDF, so it is the only
+file that has to change.
 
 ## Credits
 
