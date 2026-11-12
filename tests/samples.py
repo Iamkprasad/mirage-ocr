@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import os
 
-import pymupdf as fitz
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 FONT_CANDIDATES = [
@@ -76,20 +75,58 @@ def make_receipt_image(dpi: int = 150) -> Image.Image:
     return image
 
 
+def _pdf_escape(text: str) -> str:
+    return text.replace("\\", r"\\").replace("(", r"\(").replace(")", r"\)")
+
+
+def build_pdf(page_lines: list[list[str]]) -> bytes:
+    """A minimal PDF with Helvetica text, written by hand so no PDF writer is needed."""
+    page_count = len(page_lines)
+    page_ids = [3 + 2 * index for index in range(page_count)]
+    content_ids = [4 + 2 * index for index in range(page_count)]
+    font_id = 3 + 2 * page_count
+
+    objects: list[bytes] = []
+    objects.append(b"<< /Type /Catalog /Pages 2 0 R >>")
+    kids = " ".join(f"{page_id} 0 R" for page_id in page_ids)
+    objects.append(f"<< /Type /Pages /Kids [{kids}] /Count {page_count} >>".encode())
+    for index, lines in enumerate(page_lines):
+        objects.append(
+            f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] "
+            f"/Resources << /Font << /F1 {font_id} 0 R >> >> "
+            f"/Contents {content_ids[index]} 0 R >>".encode()
+        )
+        stream = "BT\n/F1 13 Tf\n60 780 Td\n"
+        for line in lines:
+            stream += f"({_pdf_escape(line)}) Tj\n0 -34 Td\n"
+        stream += "ET"
+        body = stream.encode("latin-1")
+        objects.append(b"<< /Length " + str(len(body)).encode() + b" >>\nstream\n" + body + b"\nendstream")
+    objects.append(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
+
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = []
+    for number, body in enumerate(objects, start=1):
+        offsets.append(len(out))
+        out += f"{number} 0 obj\n".encode() + body + b"\nendobj\n"
+    start_xref = len(out)
+    out += f"xref\n0 {len(objects) + 1}\n".encode()
+    out += b"0000000000 65535 f \n"
+    for offset in offsets:
+        out += f"{offset:010d} 00000 n \n".encode()
+    out += (
+        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\n"
+        f"startxref\n{start_xref}\n%%EOF\n"
+    ).encode()
+    return bytes(out)
+
+
 def make_pdf(pages: int = 2, dpi: int = 200) -> bytes:
     """A text PDF, the way a report generator would write one."""
-    document = fitz.open()
-    for page_number in range(pages):
-        page = document.new_page(width=595, height=842)  # A4 in points
-        font = fitz.Font("helv")
-        y = 100
-        for index, line in enumerate(DOCUMENT_LINES):
-            page.insert_text((60, y), line, fontsize=13, fontname="helv")
-            y += 34
-        page.insert_text((60, y + 20), f"Page {page_number + 1} of {pages}", fontsize=11, fontname="helv")
-    buffer = document.tobytes()
-    document.close()
-    return buffer
+    del dpi  # the resolution is chosen when the page is rendered
+    return build_pdf(
+        [DOCUMENT_LINES + [f"Page {number + 1} of {pages}"] for number in range(pages)]
+    )
 
 
 def make_document_photo(dpi: int = 300) -> Image.Image:

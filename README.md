@@ -71,7 +71,7 @@ Three more things fall out of that approach and are handled here:
 image or PDF
       |
       v
-rasterise (PDF only)      PyMuPDF, 150 / 200 / 300 DPI
+rasterise (PDF only)      PDFium, 150 / 200 / 300 DPI
       |
       v
 cut into overlapping windows          896 px squares, 20 % overlap
@@ -324,14 +324,26 @@ so a change to the event shape or to the page cannot pass unnoticed.
 This project is built on [Mirage](https://cactuscompute.com/blog/mirage) and
 the [Cactus runtime](https://github.com/cactus-compute/cactus) by
 [Cactus Compute](https://cactuscompute.com), both Apache-2.0. The weights are
-downloaded from
-[Hugging Face](https://huggingface.co/Cactus-Compute/mirage), pinned to
-revision `76c1e9e5`.
+downloaded from [Hugging Face](https://huggingface.co/Cactus-Compute/mirage),
+pinned to revision `76c1e9e5`.
 
 The full list of libraries, fonts and sample images, with their licences, is
-in [CREDITS.md](CREDITS.md). One of them deserves a note: **PyMuPDF is
-AGPL-3.0**, and `app/pdf.py` is the only file that touches a PDF, so it is the
-only file that has to change if you want a permissively licensed stack.
+in [CREDITS.md](CREDITS.md). Every dependency is permissive: Apache-2.0,
+BSD-3-Clause, MIT, the Unicode licence and the PIL licence. Nothing here is
+copyleft, so there is nothing for a deployer to publish beyond this
+repository.
+
+Two things worth knowing:
+
+* **PDF rendering uses PDFium** (BSD-3-Clause) rather than PyMuPDF, which is
+  AGPL-3.0 and has a network clause.
+* **`cactus-compute` sends anonymous usage counts** to Cactus Compute: the
+  function name, the package version, the operating system and a random
+  install id. Never prompts, never outputs, never images. Turn it off with
+  `CACTUS_TELEMETRY=0` or `DO_NOT_TRACK=1`.
+
+This repository is an independent third party project. It is not affiliated
+with, endorsed by, or sponsored by Cactus Compute, Inc.
 
 ## Licence
 

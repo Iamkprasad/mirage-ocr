@@ -25,7 +25,8 @@ pinned to revision `76c1e9e53381aca8fc3843c636216c96ff220122`.
 | [starlette](https://github.com/encode/starlette) | the ASGI layer under FastAPI | BSD-3-Clause |
 | [uvicorn](https://github.com/encode/uvicorn) | the server | BSD-3-Clause |
 | [python-multipart](https://github.com/Kludex/python-multipart) | file uploads | Apache-2.0 |
-| [pymupdf](https://github.com/pymupdf/PyMuPDF) | rendering PDF pages to images | **AGPL-3.0 or Artifex commercial** |
+| [pypdfium2](https://github.com/pypdfium/pypdfium2) | rendering PDF pages to images | Apache-2.0, BSD-3-Clause |
+| [PDFium](https://pdfium.googlesource.com/pdfium/), the renderer inside it | the PDF rasteriser | BSD-3-Clause, plus third party components under Apache-2.0, the Unicode licence and MIT |
 | [pillow](https://github.com/python-pillow/Pillow) | image handling | HPND (PIL Software License) |
 | [pydantic](https://github.com/pydantic/pydantic) | data validation, via FastAPI | MIT |
 | [anyio](https://github.com/agronholm/anyio) | async plumbing, via Starlette | MIT |
@@ -34,26 +35,24 @@ pinned to revision `76c1e9e53381aca8fc3843c636216c96ff220122`.
 | [pytest](https://github.com/pytest-dev/pytest) | the test suite | MIT |
 | [httpx](https://github.com/encode/httpx) | the test client | BSD-3-Clause |
 
-### A note on PyMuPDF
+### Why PDFium and not PyMuPDF
 
-PyMuPDF is dual licensed: **GNU AGPL-3.0** or an Artifex commercial licence.
-The AGPL is a strong copyleft licence with a network clause: if you run a
-modified version of a program that uses PyMuPDF as a service, you have to
-publish your source. This repository's own code is Apache-2.0, and running the
-app as published is fine, but if you want to host a modified version, or to
-keep the whole stack permissively licensed, replace `app/pdf.py`:
+PyMuPDF, the usual choice, is dual licensed: **GNU AGPL-3.0** or an Artifex
+commercial licence. AGPL has a network clause, which is a poor fit for a
+server application that people may deploy and modify. PDFium, the renderer
+inside Chromium, is BSD-3-Clause, so the whole stack stays permissive:
+Apache-2.0, BSD, MIT, the Unicode licence and the PIL licence.
 
-```python
-# pypdfium2, Apache-2.0, or pdfium, BSD-3-Clause
-import pypdfium2 as pdfium
-document = pdfium.PdfDocument(data)
-page = document[index]
-bitmap = page.render(scale=dpi / 72)
-image = bitmap.to_pil().convert("RGB")
-```
+The test PDF is written byte by byte in `tests/samples.py`, so the project
+does not need a PDF writer library either.
 
-Nothing else in the app has to change, because `app/pdf.py` is the only module
-that touches a PDF.
+### Telemetry
+
+`cactus-compute` sends anonymous usage counts to Cactus Compute: the
+function name, the package version, the operating system and a random
+install id. Never prompts, never outputs, never images. Turn it off with
+`CACTUS_TELEMETRY=0` or `DO_NOT_TRACK=1`, and note that it is off by itself
+in CI.
 
 ## Test data and fonts
 
