@@ -124,7 +124,7 @@ On the stop sign from the
 Python 3.10 or newer.
 
 ```sh
-git clone <your fork>
+git clone https://github.com/Iamkprasad/mirage-ocr.git
 cd mirage-ocr
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
