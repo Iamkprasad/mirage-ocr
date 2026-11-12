@@ -17,6 +17,9 @@ from dataclasses import dataclass, field
 import cactus
 from PIL import Image, ImageChops, ImageFilter, ImageOps
 
+from . import parallel
+from .log import LOG
+
 BLANK_CONTRAST = 10  # a window whose sharpest detail is below this holds no ink
 
 
@@ -171,13 +174,14 @@ def _looks_blank(tile) -> bool:
 class OcrEngine:
     """Thin wrapper around one shared Mirage instance."""
 
-    def __init__(self, tile_size: int = 896, overlap: float = 0.2, text_conf: float = 0.2,
-                 max_dim: int = 2500, refine: bool = True):
+    def __init__(self, tile_size: int = 896, overlap: float = 0.2, text_conf: float = 0.3,
+                 max_dim: int = 2500, refine: bool = True, workers: int | None = None):
         self.tile_size = tile_size
         self.overlap = overlap
         self.text_conf = text_conf
         self.max_dim = max_dim
         self.refine = refine
+        self.workers = workers
         self._lock = threading.Lock()
         self._model: cactus.Mirage | None = None
 
@@ -209,6 +213,62 @@ class OcrEngine:
             crop, sections=["text"], fields=["bbox", "score"], text_conf=self.text_conf
         )
         return result.get("text", [])
+
+    def _read_windows(self, rgb, tiles):
+        """Yield (index, box, readings, ms, skipped) for every window of the page.
+
+        Windows with no ink are skipped without a model call. The rest are read
+        one after another, or by a pool of worker processes.
+        """
+        plan = []
+        jobs = []
+        for index, box in enumerate(tiles, start=1):
+            crop = rgb.crop(box)
+            if _looks_blank(crop):
+                plan.append((index, box, None))
+            else:
+                plan.append((index, box, crop))
+                jobs.append((index, box, crop))
+        if not jobs:
+            yield from ((index, box, [], 0, True) for index, box, _ in plan)
+            return
+
+        workers = self.workers if self.workers is not None else parallel.worker_count()
+        results = {}
+        if workers > 1 and len(jobs) > 1 and parallel.existing() is not None:
+            try:
+                results = self._read_parallel(jobs)
+            except Exception as exc:  # a worker died, fall back to one process
+                LOG.warning("parallel read failed (%s), reading in one process", exc)
+                results = {}
+
+        for index, box, crop in plan:
+            if crop is None:
+                yield index, box, [], 0, True
+                continue
+            if index in results:
+                readings, elapsed = results[index]
+            else:
+                started = time.perf_counter()
+                readings = self._read_tile(crop)
+                elapsed = int((time.perf_counter() - started) * 1000)
+            yield index, box, readings, elapsed, False
+
+    def _read_parallel(self, jobs):
+        """Read the windows in worker processes, one call per window."""
+        executor = parallel.existing()
+        if executor is None:
+            raise RuntimeError("the reader pool is not started")
+        submitted = time.perf_counter()
+        futures = {}
+        for index, box, crop in jobs:
+            payload = (box, crop.tobytes(), crop.width, crop.height, self.text_conf)
+            futures[index] = executor.submit(parallel._read, payload)
+        results = {}
+        for index, future in futures.items():
+            box, readings = future.result()
+            results[index] = (readings, int((time.perf_counter() - submitted) * 1000))
+        return results
 
     def _refine(self, image, line: Line) -> str | None:
         """Re-read one line on its own, on a square canvas so it is not distorted."""
@@ -263,17 +323,15 @@ class OcrEngine:
         candidates: list[Line] = []
         read_ms = 0
         skipped = 0
-        for index, box in enumerate(tiles, start=1):
-            crop = rgb.crop(box)
-            if _looks_blank(crop):
+        for index, box, readings, window_ms, was_skipped in self._read_windows(rgb, tiles):
+            tw = box[2] - box[0]
+            th = box[3] - box[1]
+            if was_skipped:
                 skipped += 1
                 report({"stage": "window", "index": index, "total": len(tiles), "ms": 0,
                         "skipped": True, "readings": 0, "lines": [],
                         "width": width, "height": height})
                 continue
-            window_started = time.perf_counter()
-            tw, th = crop.size
-            readings = self._read_tile(crop)
             for item in readings:
                 text = (item.get("string") or "").strip()
                 if not text:
@@ -291,7 +349,6 @@ class OcrEngine:
                 )
                 line.clipped = self._is_clipped(line, box, width, height)
                 candidates.append(line)
-            window_ms = int((time.perf_counter() - window_started) * 1000)
             read_ms += window_ms
             current = merge_lines(candidates)
             report({"stage": "window", "index": index, "total": len(tiles), "ms": window_ms,

@@ -256,8 +256,9 @@ The last few hundred log records, the same ones the log panel shows.
 | --- | --- | --- |
 | `OCR_TILE_SIZE` | `896` | Window size in pixels. Smaller is more accurate, larger is faster |
 | `OCR_OVERLAP` | `0.2` | How much neighbouring windows overlap |
-| `OCR_TEXT_CONF` | `0.2` | Minimum score for a text detection |
+| `OCR_TEXT_CONF` | `0.3` | Minimum score for a text detection. Higher is more precise, `0.2` finds more |
 | `OCR_REFINE` | `1` | Set to `0` to stop re-reading lines that a window edge cut |
+| `OCR_WORKERS` | `1` | Reader processes. `2` or more reads the windows in parallel, see below |
 | `OCR_PDF_DPI` | `200` | Resolution used to rasterise PDFs, the UI can override it per upload |
 | `OCR_LOG_FILE` | `logs/app.log` | Where the log file goes |
 | `CACTUS_MIRAGE_WEIGHTS` | | Path to a local `mirage.cact` |
@@ -267,22 +268,53 @@ The last few hundred log records, the same ones the log panel shows.
 ### Where the time goes
 
 The monitor showed that reading the windows dominates, and that most windows
-of a page hold no ink at all. Two changes came out of it, measured on an A4
-scan:
+of a page hold no ink at all. Three changes came out of it, measured on an
+A4 scan:
 
 | Change | Model calls | Time |
 | --- | --- | --- |
 | Read every window | 12 | 3.7 s |
 | Skip windows with no ink | 2 | 2.3 s |
-| Do not re-read cut lines (`OCR_REFINE=0`) | 2 | saves a further 0.8 s per page, long lines may break |
+| Read the windows in two processes (`OCR_WORKERS=2`) | 2 | about half again, on a machine with cores to spare |
 
 A window counts as empty when it differs from a blurred copy of itself by
 almost nothing, so smooth shading is empty and a line of text is not. The
 character error rate does not change when empty windows are skipped.
 
-What is left is the model itself, about 450 ms per window on this machine.
-The Cactus runtime serialises every call, so the only way to go faster is to
-read windows in separate processes, which the API shape already allows.
+The Cactus runtime serialises every call inside one process, and one call
+uses about half the cores, so the windows of a page *can* be read by a small
+pool of reader processes. That is what `OCR_WORKERS=2` does. It is off by
+default: each worker loads its own Mirage instance, and on a small machine
+the memory is worth more than the speed. The workers are forked at startup,
+before any inference has run, so they can never inherit a held engine lock,
+and if one dies the page is read in the main process instead. On macOS and
+Windows the pool stays off, because there the children are spawned and a
+spawned child re-imports the entry point, which for a server means starting a
+second server.
+
+### How the settings were chosen
+
+`tests/eval_textlayer.py` compares the OCR output with the text layer of a
+digital PDF, which is the truth the PDF was written with:
+
+```sh
+.venv/bin/python tests/eval_textlayer.py your.pdf --dpi 200 --tile 896 --text-conf 0.3
+```
+
+On a dense four page insurance policy it gives:
+
+| Setting | Word recall | Character accuracy | Windows |
+| --- | --- | --- | --- |
+| `text_conf` 0.2 | 0.855 | | 21 |
+| `text_conf` 0.3 | **0.873** | **0.989** | 21 |
+| `text_conf` 0.45 | 0.857 | 0.973 | 21 |
+| no refinement | 0.796 | | 21 |
+| 300 DPI instead of 200 | 0.854 | 0.990 | 21 |
+
+Two things fell out of it: `text_conf` 0.3 reads more of the real words than
+0.2 for the same cost, and re-reading the lines that a window edge cut is
+worth six points of recall, so it stays on. A higher DPI buys almost nothing
+for twice the work.
 
 ## Project layout
 

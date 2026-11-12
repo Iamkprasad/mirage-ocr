@@ -15,6 +15,7 @@ import json
 import os
 import threading
 import time
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
@@ -25,6 +26,7 @@ from .engine import OcrEngine
 from .log import LOG, recent, setup
 from .metrics import MONITOR
 from .pdf import render_pdf
+from . import parallel
 
 setup()
 LOG.info("mirage ocr starting, tile=%s", os.environ.get("OCR_TILE_SIZE", "896"))
@@ -36,7 +38,26 @@ MAX_UPLOAD_BYTES = 64 * 1024 * 1024
 class Cancelled(Exception):
     """Raised inside a job when the browser goes away."""
 
-app = FastAPI(title="Mirage OCR", description="Image and PDF OCR powered by Cactus Compute Mirage")
+
+def start_readers() -> None:
+    """Start the reader processes before the first request.
+
+    They are forked now, while no inference is running, so they can never
+    inherit a held engine lock.
+    """
+    if parallel.worker_count() > 1 and parallel.pool() is not None:
+        LOG.info("started %d reader processes", parallel.worker_count())
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    start_readers()
+    yield
+    parallel.shutdown()
+
+
+app = FastAPI(title="Mirage OCR", description="Image and PDF OCR powered by Cactus Compute Mirage",
+               lifespan=lifespan)
 
 engine = OcrEngine(
     tile_size=int(os.environ.get("OCR_TILE_SIZE", 896)),
