@@ -30,6 +30,29 @@
   <span id="status"></span>
 </section>
 
+<section class="fields">
+  <h2>Fields to find</h2>
+  <div class="field-input">
+    <input id="field-name" type="text" placeholder="invoice no, bill no, insured name…" list="field-suggestions">
+    <datalist id="field-suggestions">
+      <option value="invoice no"></option>
+      <option value="bill no"></option>
+      <option value="policy number"></option>
+      <option value="insured name"></option>
+      <option value="date"></option>
+      <option value="total amount"></option>
+      <option value="mobile"></option>
+      <option value="address"></option>
+    </datalist>
+    <button id="add-field">Add</button>
+  </div>
+  <div id="chips" class="chips"></div>
+  <table id="field-results" class="results" hidden>
+    <thead><tr><th>Field</th><th>Value</th><th>Where</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</section>
+
 <section class="progress">
   <div class="bar"><div id="bar-fill"></div></div>
   <div id="stage" class="stage">idle</div>

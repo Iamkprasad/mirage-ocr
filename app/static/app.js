@@ -9,10 +9,48 @@ const copyBtn = document.getElementById("copy");
 const downloadBtn = document.getElementById("download");
 const barFill = document.getElementById("bar-fill");
 const stageOut = document.getElementById("stage");
+const fieldInput = document.getElementById("field-name");
+const addFieldBtn = document.getElementById("add-field");
+const chips = document.getElementById("chips");
+const fieldResults = document.getElementById("field-results");
 
 let lastResult = null;
 let lastObjectUrl = null;
 let running = false;
+const wanted = new Set();
+
+addFieldBtn.addEventListener("click", addField);
+fieldInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    addField();
+  }
+});
+
+function addField() {
+  const name = fieldInput.value.trim();
+  if (!name) return;
+  wanted.add(name);
+  fieldInput.value = "";
+  renderChips();
+}
+
+function renderChips() {
+  chips.innerHTML = "";
+  for (const name of wanted) {
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.textContent = name;
+    const remove = document.createElement("button");
+    remove.textContent = "×";
+    remove.addEventListener("click", () => {
+      wanted.delete(name);
+      renderChips();
+    });
+    chip.appendChild(remove);
+    chips.appendChild(chip);
+  }
+}
 
 drop.addEventListener("click", () => fileInput.click());
 fileInput.addEventListener("change", () => fileInput.files[0] && run(fileInput.files[0]));
@@ -75,6 +113,10 @@ async function run(file) {
   const form = new FormData();
   form.append("file", file);
   form.append("dpi", dpiSelect.value);
+  if (wanted.size) {
+    form.append("fields", JSON.stringify([...wanted]));
+    form.append("mode", "auto");
+  }
 
   if (lastObjectUrl) URL.revokeObjectURL(lastObjectUrl);
   lastObjectUrl = URL.createObjectURL(file);
@@ -138,6 +180,7 @@ function handleFrame(frame, state) {
   if (event[1] === "result") {
     lastResult = payload;
     render(payload);
+    renderFields(payload.fields);
     setProgress(1);
     const carried = payload.pages.filter((page) => page.source === "text").length;
     const scanned = payload.pages.length - carried;
@@ -230,6 +273,49 @@ function drawPage(state, event) {
     box.style.height = ((line.bbox[3] - line.bbox[1]) / event.height) * 100 + "%";
     holder.appendChild(box);
   }
+}
+
+function renderFields(fields) {
+  if (!fields) {
+    fieldResults.hidden = true;
+    return;
+  }
+  fieldResults.hidden = false;
+  const body = fieldResults.querySelector("tbody");
+  body.innerHTML = "";
+  for (const [key, found] of Object.entries(fields)) {
+    const row = document.createElement("tr");
+    const name = document.createElement("td");
+    name.textContent = found.field || key;
+    const value = document.createElement("td");
+    value.textContent = found.value === null || found.value === undefined ? "not found" : String(found.value);
+    if (found.value === null || found.value === undefined) value.className = "missing";
+    const where = document.createElement("td");
+    where.textContent = found.page ? `page ${found.page}` : "";
+    row.appendChild(name);
+    row.appendChild(value);
+    row.appendChild(where);
+    if (found.bbox) {
+      row.classList.add("clickable");
+      row.addEventListener("click", () => highlight(found));
+    }
+    body.appendChild(row);
+  }
+}
+
+function highlight(found) {
+  document.querySelectorAll(".page .box").forEach((box) => box.classList.remove("picked"));
+  const holder = document.querySelectorAll(".page")[found.page - 1];
+  if (!holder) return;
+  const box = document.createElement("div");
+  box.className = "box picked";
+  const page = lastResult.pages[found.page - 1];
+  box.style.left = (found.bbox[0] / page.width) * 100 + "%";
+  box.style.top = (found.bbox[1] / page.height) * 100 + "%";
+  box.style.width = ((found.bbox[2] - found.bbox[0]) / page.width) * 100 + "%";
+  box.style.height = ((found.bbox[3] - found.bbox[1]) / page.height) * 100 + "%";
+  holder.querySelector(".page > div").appendChild(box);
+  holder.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 function render(data) {

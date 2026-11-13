@@ -179,6 +179,52 @@ def test_the_model_is_used_when_a_pdf_has_no_text() -> None:
     assert response.json()["pages"][0]["source"] == "ocr"
 
 
+def test_fields_are_found_in_a_document() -> None:
+    """Ask for a field by name and get the value and where it came from."""
+    from app.fields import extract_fields
+
+    data = make_pdf(pages=1)
+    from app.pdf import read_text_layer
+
+    pages = read_text_layer(data, dpi=200)
+    document = [{"lines": [{"text": line["text"], "bbox": line["bbox"]} for line in page]}
+                for page in pages]
+    found = extract_fields(document, {
+        "invoice_no": "the invoice number",
+        "date": "the date of the invoice",
+        "total_amount": "the total amount",
+    })
+    assert found["invoice_no"]["value"] == "#A-2291"
+    assert found["date"]["value"] == "2026-11-12"
+    assert found["total_amount"]["value"] == "$1,480.00"
+    assert found["invoice_no"]["page"] == 1
+    assert found["invoice_no"]["bbox"]
+
+
+def test_the_api_returns_the_fields() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/api/fields",
+        files={"file": ("document.pdf", make_pdf(pages=1), "application/pdf")},
+        data={"fields": json.dumps(["invoice no", "date"])},
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["fields"]["invoice_no"]["value"] == "#A-2291"
+    assert payload["fields"]["date"]["value"] == "2026-11-12"
+
+
+def test_a_field_that_is_not_there_is_reported_as_missing() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/api/fields",
+        files={"file": ("document.pdf", make_pdf(pages=1), "application/pdf")},
+        data={"fields": json.dumps({"passport number": "the passport number"})},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["fields"]["passport_number"]["value"] is None
+
+
 @pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
 def test_stream_and_frontend_contracts(tmp_path) -> None:
     """The browser code reads specific fields, so check the stream still has them."""

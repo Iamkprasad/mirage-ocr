@@ -21,6 +21,7 @@ GET  /api/logs                ->  the last few hundred log lines
 
 - [Why this is not a five line wrapper](#why-this-is-not-a-five-line-wrapper)
 - [What comes back](#what-comes-back)
+- [Finding named values](#finding-named-values)
 - [How it works](#how-it-works)
 - [Results](#results)
 - [Install and run](#install-and-run)
@@ -90,6 +91,67 @@ whole page handed over at once is unreadable.
 **Both answers are the same shape**, so the interface does not have to care
 which one a page came from. Send `mode=ocr` to read a digital PDF with the
 model anyway, for example to compare the two.
+
+## Finding named values
+
+Ask for a field by name and the app works out the value: "invoice no", "bill
+no", "insured name", "policy number", "date", "total amount", "mobile",
+"address". Type them into the **Fields to find** box before uploading, or
+send them with the API.
+
+```
+POST /api/fields
+  file=@document.pdf
+  fields=["invoice no", "policy number", "insured name"]
+```
+
+```json
+{
+  "fields": {
+    "invoice_no": {
+      "field": "invoice no",
+      "value": "REF-1234",
+      "confidence": 0.85,
+      "page": 1,
+      "bbox": [59, 241, 1579, 259],
+      "line": "Ref. No.: REF-1234 Policy Number : 3005/O/4622/00"
+    }
+  }
+}
+```
+
+A field can also be a JSON schema, when you want a type or a choice:
+
+```json
+{
+  "fields": {
+    "invoice_no": "the invoice number",
+    "total_amount": {"type": "number", "description": "the amount payable"},
+    "document_type": {"type": "string", "enum": ["invoice", "bill", "policy", "receipt"]}
+  }
+}
+```
+
+How a value is found:
+
+1. the words of the field name are looked for in the lines of the page, the
+   ones that mean the same thing included, so "bill no" finds "Bill No."
+2. the line that looks like it holds the label is read, and the value runs
+   from the label until the next label
+3. when the value is not there in that plain shape, the model is asked, but
+   only from that line and the one below it, because a small model reads a
+   short piece of text far better than a whole page
+4. whatever comes back has to be **in the lines it was read from**, otherwise
+   it is not an answer: a value that cannot be found is reported as missing
+   rather than made up
+
+Every answer comes with the page, the box and the line it was found in, so it
+can be checked. Clicking a row in the web app highlights that box on the
+page.
+
+On the two real documents this was tested against, nine of the ten fields
+came out right; the one that did not was a name that sits in the middle of a
+table header row, where the answer is ambiguous.
 
 ## How it works
 
@@ -361,7 +423,8 @@ for twice the work.
 
 ```
 app/engine.py       tiling, merging, refinement around one Mirage instance
-app/pdf.py          PDF pages to images
+app/pdf.py          PDF pages to images, and the text a PDF carries
+app/fields.py       finding named values in a document
 app/main.py         FastAPI routes and the streaming job runner
 app/log.py          logging to the console, a file and a ring buffer for the UI
 app/metrics.py      the speed monitor

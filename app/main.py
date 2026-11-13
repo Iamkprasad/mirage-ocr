@@ -23,6 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image, UnidentifiedImageError
 
 from .engine import OcrEngine
+from .fields import extract_fields
 from .log import LOG, recent, setup
 from .metrics import MONITOR
 from .pdf import read_text_layer, render_pdf
@@ -225,9 +226,66 @@ async def ocr(file: UploadFile = File(...), dpi: int = Form(0),
     return JSONResponse(run_ocr(data, filename, dpi, mode=mode))
 
 
+def find_fields(pages: list[dict], wanted: dict) -> dict:
+    """The value of every field the user asked for, and where it was found."""
+    found = extract_fields([{"lines": page["lines"]} for page in pages], wanted)
+    for value in found.values():
+        page_number = value.get("page")
+        if page_number:
+            value["bbox"] = next((line["bbox"] for line in document_lines(pages[page_number - 1])
+                                  if line["text"] == value.get("line")), None)
+    return found
+
+
+def document_lines(page: dict) -> list[dict]:
+    return page.get("lines", [])
+
+
+def parse_fields(raw: str) -> dict:
+    """The fields the user asked for.
+
+    Either a list of names ("invoice no", "insured name") or a JSON object
+    where the value is a description or a full JSON schema.
+    """
+    raw = (raw or "").strip()
+    if not raw:
+        return {}
+    try:
+        given = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail=f"the fields are not valid JSON: {exc}") from exc
+    if isinstance(given, list):
+        given = {str(name): str(name) for name in given}
+    if not isinstance(given, dict):
+        raise HTTPException(status_code=400, detail="the fields must be a list or an object")
+    return {str(name): spec for name, spec in given.items()}
+
+
+@app.post("/api/fields")
+async def fields(file: UploadFile = File(...), fields: str = Form(""),
+                 dpi: int = Form(0), mode: str = Form("auto")) -> JSONResponse:
+    """Read the named fields out of a document."""
+    wanted = parse_fields(fields)
+    if not wanted:
+        raise HTTPException(status_code=400, detail="no fields asked for")
+    data = await file.read()
+    _check_upload(data)
+    filename = file.filename or "upload"
+    LOG.info("fields asked for: %s", ", ".join(wanted))
+
+    document = run_ocr(data, filename, dpi, mode=mode)
+    found = find_fields(document["pages"], wanted)
+    document["fields"] = found
+    LOG.info("fields found: %s", json.dumps({k: v["value"] for k, v in found.items()}))
+    return JSONResponse({"filename": filename, "kind": document["kind"],
+                         "pages": document["pages"], "fields": found,
+                         "text": document["text"], "ms": document["ms"]})
+
+
 @app.post("/api/ocr/stream")
 async def ocr_stream(file: UploadFile = File(...), dpi: int = Form(0),
-                      mode: str = Form("auto")) -> StreamingResponse:
+                      mode: str = Form("auto"), fields: str = Form("")) -> StreamingResponse:
+    wanted = parse_fields(fields)
     data = await file.read()
     _check_upload(data)
     filename = file.filename or "upload"
@@ -250,7 +308,10 @@ async def ocr_stream(file: UploadFile = File(...), dpi: int = Form(0),
 
     def work() -> None:
         try:
-            publish("result", run_ocr(data, filename, dpi, progress=progress, mode=mode))
+            document = run_ocr(data, filename, dpi, progress=progress, mode=mode)
+            if wanted:
+                document["fields"] = find_fields(document["pages"], wanted)
+            publish("result", document)
         except Cancelled:
             LOG.info("request cancelled filename=%s", filename)
         except HTTPException as exc:
