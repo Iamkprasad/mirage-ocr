@@ -139,6 +139,19 @@ main {
 
 .page .box.low { border-color: rgba(251, 146, 60, 0.9); background: rgba(251, 146, 60, 0.12); }
 
+.page .tag {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  background: rgba(16, 19, 26, 0.85);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
 .side {
   display: flex;
   flex-direction: column;

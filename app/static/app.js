@@ -139,8 +139,17 @@ function handleFrame(frame, state) {
     lastResult = payload;
     render(payload);
     setProgress(1);
-    setStage(`done in ${(payload.ms / 1000).toFixed(1)}s`);
-    setStatus(`${payload.kind.toUpperCase()} · ${payload.pages.length} page(s) · ${(payload.ms / 1000).toFixed(1)}s`, "done");
+    const carried = payload.pages.filter((page) => page.source === "text").length;
+    const scanned = payload.pages.length - carried;
+    setStage(
+      `done in ${(payload.ms / 1000).toFixed(1)}s` +
+        (carried ? ` · ${carried} page(s) from the text layer` : "") +
+        (scanned ? ` · ${scanned} page(s) read by the model` : "")
+    );
+    setStatus(
+      `${payload.kind.toUpperCase()} · ${payload.pages.length} page(s) · ${(payload.ms / 1000).toFixed(1)}s`,
+      "done"
+    );
     copyBtn.disabled = downloadBtn.disabled = false;
   }
 }
@@ -229,6 +238,12 @@ function render(data) {
   data.pages.forEach((page) => {
     const frame = document.createElement("div");
     frame.className = "page";
+    if (page.source === "text") {
+      const tag = document.createElement("span");
+      tag.className = "tag";
+      tag.textContent = "text layer";
+      frame.appendChild(tag);
+    }
     const holder = document.createElement("div");
     holder.style.position = "relative";
     holder.style.width = "100%";

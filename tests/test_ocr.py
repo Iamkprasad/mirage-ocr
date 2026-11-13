@@ -130,6 +130,55 @@ def test_monitor_and_logs_are_exposed() -> None:
     assert isinstance(logs["entries"], list)
 
 
+def test_a_pdf_with_its_own_text_is_read_from_it() -> None:
+    """A PDF written by a word processor carries the text it was written with."""
+    import io
+
+    import pypdfium2 as pdfium
+
+    from app.pdf import read_text_layer
+
+    data = make_pdf(pages=1)
+    pages = read_text_layer(data, dpi=200)
+    assert len(pages) == 1
+    assert pages[0], "the text layer should not be empty"
+    text = " ".join(line["text"] for line in pages[0])
+    for line in DOCUMENT_LINES:
+        assert line in text, f"missing from the text layer: {line!r}"
+    x0, y0, x1, y1 = pages[0][0]["bbox"]
+    assert 0 <= x0 < x1 and 0 <= y0 < y1
+
+    buffer = io.BytesIO()
+    make_document_image().save(buffer, "PNG")
+    client = TestClient(app)
+    response = client.post(
+        "/api/ocr",
+        files={"file": ("document.pdf", data, "application/pdf")},
+        data={"mode": "auto"},
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["pages"][0]["source"] == "text"
+    for line in DOCUMENT_LINES:
+        assert line in payload["text"]
+
+
+def test_the_model_is_used_when_a_pdf_has_no_text() -> None:
+    """A scanned page is a picture, so the model has to read it."""
+    import io
+
+    buffer = io.BytesIO()
+    make_document_image().save(buffer, "PNG")
+    client = TestClient(app)
+    response = client.post(
+        "/api/ocr",
+        files={"file": ("document.png", buffer.getvalue(), "image/png")},
+        data={"mode": "auto"},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["pages"][0]["source"] == "ocr"
+
+
 @pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
 def test_stream_and_frontend_contracts(tmp_path) -> None:
     """The browser code reads specific fields, so check the stream still has them."""

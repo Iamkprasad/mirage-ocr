@@ -25,7 +25,7 @@ from PIL import Image, UnidentifiedImageError
 from .engine import OcrEngine
 from .log import LOG, recent, setup
 from .metrics import MONITOR
-from .pdf import render_pdf
+from .pdf import read_text_layer, render_pdf
 from . import parallel
 
 setup()
@@ -92,8 +92,13 @@ def preview_data_url(image) -> str:
     return "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode()
 
 
-def run_ocr(data: bytes, filename: str, dpi: int, progress=None) -> dict:
-    """The whole job: decode, read every page, collect the answer."""
+def run_ocr(data: bytes, filename: str, dpi: int, progress=None, mode: str = "auto") -> dict:
+    """The whole job: decode, read every page, collect the answer.
+
+    A PDF page that carries its own text is read from that text, which is
+    exact and instant. A page without one is a picture, and is read by the
+    model.
+    """
     started = time.perf_counter()
     is_pdf = data[:5] == b"%PDF-" or filename.lower().endswith(".pdf")
     pages = []
@@ -117,6 +122,14 @@ def run_ocr(data: bytes, filename: str, dpi: int, progress=None) -> dict:
         report({"stage": "rendered", "pages": len(rendered), "ms": render_ms,
                 "width": rendered[0][1].width if rendered else 0,
                 "height": rendered[0][1].height if rendered else 0})
+        try:
+            embedded = read_text_layer(data, dpi=resolution) if mode != "ocr" else []
+        except Exception as exc:
+            LOG.warning("could not read the text layer: %s", exc)
+            embedded = []
+        carried = sum(1 for page in embedded if page)
+        if carried:
+            LOG.info("pdf carries its own text on %d of %d pages", carried, len(rendered))
     else:
         try:
             image = Image.open(io.BytesIO(data))
@@ -124,8 +137,33 @@ def run_ocr(data: bytes, filename: str, dpi: int, progress=None) -> dict:
         except UnidentifiedImageError as exc:
             raise HTTPException(status_code=400, detail="not an image or PDF") from exc
         rendered = [(1, image)]
+        embedded = []
 
     for number, image in rendered:
+        page_lines = embedded[number - 1] if number - 1 < len(embedded) else []
+        if page_lines and mode != "ocr":
+            text_started = time.perf_counter()
+            page = {
+                "page": number,
+                "source": "text",
+                "width": image.width,
+                "height": image.height,
+                "ms": int((time.perf_counter() - text_started) * 1000),
+                "timing": {"lines": len(page_lines)},
+                "lines": page_lines,
+                "text": "\n".join(line["text"] for line in page_lines),
+            }
+            if is_pdf:
+                page["preview"] = preview_data_url(image)
+            pages.append(page)
+            lines += len(page_lines)
+            LOG.info("page %d read from the text layer, %d lines", number, len(page_lines))
+            report({"stage": "page_text", "page": number, "text": page["text"],
+                    "width": image.width, "height": image.height})
+            report({"stage": "page_done", "page": number, "ms": page["ms"],
+                    "lines": len(page_lines), "timing": page["timing"]})
+            continue
+
         report({"stage": "page_start", "page": number, "total_pages": len(rendered)})
         result = engine.ocr_image(image, progress=report)
         timing = result.timing
@@ -140,7 +178,7 @@ def run_ocr(data: bytes, filename: str, dpi: int, progress=None) -> dict:
         LOG.info("page done page=%d size=%dx%d ms=%d windows=%d skipped=%d lines=%d",
                  number, result.width, result.height, result.ms, timing.get("windows", 0),
                  timing.get("windows_skipped", 0), timing.get("lines", 0))
-        page = {"page": number, **result.as_dict()}
+        page = {"page": number, "source": "ocr", **result.as_dict()}
         if is_pdf:
             page["preview"] = preview_data_url(image)
         pages.append(page)
@@ -178,16 +216,18 @@ def run_ocr(data: bytes, filename: str, dpi: int, progress=None) -> dict:
 
 
 @app.post("/api/ocr")
-async def ocr(file: UploadFile = File(...), dpi: int = Form(0)) -> JSONResponse:
+async def ocr(file: UploadFile = File(...), dpi: int = Form(0),
+              mode: str = Form("auto")) -> JSONResponse:
     data = await file.read()
     _check_upload(data)
     filename = file.filename or "upload"
     LOG.info("upload filename=%s bytes=%d", filename, len(data))
-    return JSONResponse(run_ocr(data, filename, dpi))
+    return JSONResponse(run_ocr(data, filename, dpi, mode=mode))
 
 
 @app.post("/api/ocr/stream")
-async def ocr_stream(file: UploadFile = File(...), dpi: int = Form(0)) -> StreamingResponse:
+async def ocr_stream(file: UploadFile = File(...), dpi: int = Form(0),
+                      mode: str = Form("auto")) -> StreamingResponse:
     data = await file.read()
     _check_upload(data)
     filename = file.filename or "upload"
@@ -210,7 +250,7 @@ async def ocr_stream(file: UploadFile = File(...), dpi: int = Form(0)) -> Stream
 
     def work() -> None:
         try:
-            publish("result", run_ocr(data, filename, dpi, progress=progress))
+            publish("result", run_ocr(data, filename, dpi, progress=progress, mode=mode))
         except Cancelled:
             LOG.info("request cancelled filename=%s", filename)
         except HTTPException as exc:
