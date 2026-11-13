@@ -4,3 +4,12 @@ __pycache__/
 .pytest_cache/
 tests/samples/
 logs/
+
+# never commit a document: the app is used on private files
+*.pdf
+*.jpg
+*.jpeg
+*.heic
+*.tif
+*.tiff
+*.png

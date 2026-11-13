@@ -589,6 +589,15 @@ Two things worth knowing:
 This repository is an independent third party project. It is not affiliated
 with, endorsed by, or sponsored by Cactus Compute, Inc.
 
+### Please do not commit real documents
+
+This app is used on private papers: policies, invoices, bills, identity
+documents. The repository ignores `*.pdf`, `*.jpg`, `*.png`, `logs/` and
+`tests/samples/`, and the examples in this README use made up values. If you
+add a sample of your own, make it a made up one. If you ever commit a real
+document by accident, the history has to be rewritten and the old commit
+purged from GitHub, so please do not.
+
 ## Licence
 
 Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
